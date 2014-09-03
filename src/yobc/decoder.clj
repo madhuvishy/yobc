@@ -14,7 +14,6 @@
   [stream ch delimiter]
   (loop [marker (or ch (get-next-char stream))
          result ""]
-    (println (= marker delimiter) marker " , "result ", INT DECODE")
     (if (= marker delimiter)
       (Integer/parseInt (str result))
       (recur (get-next-char stream) (str result marker)))))
@@ -22,27 +21,29 @@
 (defn decode-string
   "Decodes a bencoded string"
   [stream ch]
-  (let [len (decode-integer stream ch \:) 
-        string-buffer (make-array Character/TYPE len)]
-     (.read stream string-buffer)
-     (println (String. string-buffer) ", STRING DECODE") 
-     (String. string-buffer)))
+  (let [len (decode-integer stream ch \:)]
+    (loop [counter len
+           result ""]
+      (println counter ", " result)
+      (if (zero? counter)
+        result
+        (recur (dec counter) (str result (get-next-char stream)))))))
 
 (defn decode-list
-  "Decodes a bencoded string"
+  "Decodes a bencoded list"
   [stream]
   (loop [result []]
     (let [marker (get-next-char stream)
           append (decode-stream stream marker)]
-      (println result ", LIST DECODE")
       (if (or (nil? marker) ( = marker \e))
         result
         (recur (conj result append))))))
 
 (defn decode-dict
-  "Decodes a bencoded string"
+  "Decodes a bencoded list"
   [stream]
-  (apply hash-map (decode-list stream)))
+  (do
+    (apply hash-map (decode-list stream))))
 
 (defn decode-stream
   "Decode markers in a bencoded stream"
@@ -59,6 +60,4 @@
   "Read torrent file as a stream and decode it"
   [filename]
   (with-open [rdr (io/reader filename)]
-    (decode-dict rdr)))
-
-#_(decode "sam.torrent")
+    (do (get-next-char rdr) (decode-dict rdr))))
