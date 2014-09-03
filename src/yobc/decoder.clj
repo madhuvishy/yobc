@@ -21,13 +21,10 @@
 (defn decode-string
   "Decodes a bencoded string"
   [stream ch]
-  (let [len (decode-integer stream ch \:)]
-    (loop [counter len
-           result ""]
-      (println counter ", " result)
-      (if (zero? counter)
-        result
-        (recur (dec counter) (str result (get-next-char stream)))))))
+  (let [len (decode-integer stream ch \:)
+        buffer (byte-array len)]
+    (.read stream buffer)
+    (String. buffer)))
 
 (defn decode-list
   "Decodes a bencoded list"
@@ -59,5 +56,5 @@
 (defn decode
   "Read torrent file as a stream and decode it"
   [filename]
-  (with-open [rdr (io/reader filename)]
+  (with-open [rdr (io/input-stream (io/file filename))]
     (do (get-next-char rdr) (decode-dict rdr))))
