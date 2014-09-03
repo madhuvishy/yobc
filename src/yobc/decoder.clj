@@ -10,12 +10,10 @@
 (defn decode-string
   "Decodes a bencoded string"
   [stream ch]
-  (loop [cnt (decode-integer stream ch \:) 
-         marker (get-next-char stream) 
-         result "" ]
-     (if (or (zero? cnt) (nil? marker))
-       result
-       (recur (dec cnt) (get-next-char stream) (str result marker)))))
+  (let [len (decode-integer stream ch \:) 
+        string-buffer (make-array Character/TYPE len)]
+     (.read stream string-buffer)
+     (String. string-buffer)))
 
 (defn decode-integer
   "Decodes a bencoded integer"
