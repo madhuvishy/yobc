@@ -24,7 +24,7 @@
   (let [len (decode-integer stream ch \:)
         buffer (byte-array len)]
     (.read stream buffer)
-    (String. buffer)))
+    (String. buffer "ISO-8859-1")))
 
 (defn decode-list
   "Decodes a bencoded list"
@@ -53,7 +53,7 @@
       (= marker \l) (decode-list stream)
       (= marker \d) (decode-dict stream))))
 
-(defn decode
+(defn bdecode
   "Read torrent file as a stream and decode it"
   [filename]
   (with-open [rdr (io/input-stream (io/file filename))]
