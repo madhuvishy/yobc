@@ -1,4 +1,4 @@
-(ns yobc.decoder
+(ns yobc.bdecoder
   (:require [clojure.java.io :as io]))
 
 (defn get-next-char
