@@ -40,7 +40,7 @@
   "Decodes a bencoded list"
   [stream]
   (do
-    (apply hash-map (decode-list stream))))
+    (apply sorted-map (decode-list stream))))
 
 (defn decode-stream
   "Decode markers in a bencoded stream"
