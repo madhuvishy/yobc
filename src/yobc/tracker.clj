@@ -1,4 +1,4 @@
-(ns yobc.udp-client
+(ns yobc.tracker
   (:require [clojure.core.async :as async :refer  [<! >! chan go close!]])
   (:import  (java.net InetSocketAddress DatagramPacket DatagramSocket)))
 
@@ -7,10 +7,11 @@
   (let [bytearray (bytes bytearray)]
     (aget bytearray i)))
 
-(defn get-bytes [bytearray]
-  (map #(aget bytearray %) (range (count bytearray))))
+(defn get-bytes 
+  ([bytearray] (map #(aget bytearray %) (range (count bytearray))))
+  ([bytearray start end] (map #(aget bytearray %) (range start end))))
 
-(defn udp!
+(defn tracker!
   "Defines out - a channel that blocks until there's a packet and does a UDP send,
   and in - a channel that blocks until there's a packet from the server and puts it to be read."
   [host port in-buf-len]
@@ -25,17 +26,24 @@
           (>! in packet))))
     {:in in :out out}))
 
-(def initial-cid  (byte-array  (map byte  [0 0 4 23 39 16 25 -128])))
-(def initial-action  (byte-array  (map byte  (repeat 4 0))))
-(def initial-tid  (byte-array  (map byte  (repeat 4  (rand-int 127)))))
-(def payload  (byte-array  (concat initial-cid initial-action initial-tid)))
-
 (defn connect!
   []
-  (let [t (udp! "tracker.publicbt.com" 80 16)
-        in (:in t)
-        out (:out t)]
-    (go (>! out payload))
-    (go (when-let [data (<! in)]
-          (println (get-bytes (.getData data)))))))
+  (let [t (tracker! "tracker.publicbt.com" 80 16)
+        initial-cid  (byte-array  (map byte  [0 0 4 23 39 16 25 -128]))
+        initial-action  (byte-array 4)
+        initial-tid  (byte-array  (map byte  (repeat 4  (rand-int 127))))
+        payload  (byte-array  (concat initial-cid initial-action initial-tid))]
+    (go (>! (:out t) payload))
+    (go (when-let [data (<! (:in t))]
+          (let [b (get-bytes (.getData data))
+                tid (take 4 (drop 4 b))
+                cid (take 8 (drop 8 b))]
+            (when (= tid (get-bytes initial-tid))
+              cid))))))
+
+
+(defn announce!
+  []
+  )
+
 
