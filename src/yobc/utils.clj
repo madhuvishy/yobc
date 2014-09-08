@@ -8,8 +8,3 @@
       (.digest (doto (java.security.MessageDigest/getInstance "SHA-1")
                      .reset
                      (.update (.getBytes string)))))))
-
-(defn peer-id
-  "#FIXME Generate random peer id"
-  []
-  "ma110519911409847523")
