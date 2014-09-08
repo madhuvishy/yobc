@@ -8,3 +8,24 @@
       (.digest (doto (java.security.MessageDigest/getInstance "SHA-1")
                      .reset
                      (.update (.getBytes string)))))))
+
+(defn get-byte [bytearray i]
+  (let [bytearray (bytes bytearray)]
+    (aget bytearray i)))
+
+(defn get-bytes
+  ([bytearray] (map #(aget bytearray %) (range (count bytearray))))
+  ([bytearray start end] (map #(aget bytearray %) (range start end))))
+
+(defn hex-to-bytes
+  [hex-string]
+  (let [b (.toByteArray (BigInteger. hex-string 16))]
+    (if (> (count b) 20)
+      (drop 1 (take 21 b))
+      (get-bytes b))))
+
+(defn dec-to-bytes
+  [number]
+  (let [b (.toByteArray (BigInteger. (str number) 10))
+        diff (- 8 (count b))]
+    (concat (repeat diff 0) (get-bytes b))))

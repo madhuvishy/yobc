@@ -2,20 +2,40 @@
   (:require [clojure.core.async :as async :refer  [<! >! chan go close!]]
             [yobc.bencoder :as bencoder :refer [bencode]]
             [yobc.bdecoder :as bdecoder :refer [bdecode]]
-            [yobc.utils :as utils :refer [sha-1]])
+            [yobc.utils :as utils :refer [sha-1 get-byte get-bytes hex-to-bytes dec-to-bytes]])
   (:import  (java.net InetSocketAddress DatagramPacket DatagramSocket)))
-
-
-(defn get-byte [bytearray i]
-  (let [bytearray (bytes bytearray)]
-    (aget bytearray i)))
-
-(defn get-bytes 
-  ([bytearray] (map #(aget bytearray %) (range (count bytearray))))
-  ([bytearray start end] (map #(aget bytearray %) (range start end))))
 
 (defn make-tid []
   (repeat 4  (rand-int 127)))
+
+(defn connect-req 
+  [tid]
+  (byte-array
+    (map byte
+      (concat
+        [0 0 4 23 39 16 25 -128]  ;initial-cid
+        (repeat 4 0)              ;initial-action
+        tid))))
+
+(defn announce-req 
+  [cid tid info-hash length]
+  (byte-array 
+    (map byte 
+      (concat
+        cid
+        [0 0 0 1]     ;action 
+        tid
+        (hex-to-bytes info-hash)
+        (repeat 20 0) ;peer-id
+        (repeat 8 0)  ;downloaded
+        (dec-to-bytes length)  ;left
+        (repeat 8 0)  ;uploaded
+        (repeat 4 0)  ;event
+        (repeat 4 0)  ;IPv4 address
+        (repeat 4 0)  ;key
+        (repeat 4 127)  ;num want
+        [43 70]       ;Client ip 
+        ))))
 
 (defn tracker!
   "Defines out - a channel that blocks until there's a packet and does a UDP send,
@@ -32,15 +52,6 @@
           (>! in packet))))
     {:in in :out out}))
 
-(defn connect-req 
-  [tid]
-  (byte-array
-    (map byte
-      (concat
-        [0 0 4 23 39 16 25 -128]  ;initial-cid
-        (repeat 4 0)              ;initial-action
-        tid))))
-
 (defn connect!
   [tracker]
   (let [tid (make-tid)
@@ -54,38 +65,17 @@
           (when (= tid' tid)
              cid'))))))
 
-(defn announce-req 
-  [cid tid info-hash]
-  (byte-array 
-    (map byte 
-      (concat
-        cid
-        [0 0 0 1]     ;action 
-        tid
-        (seq info-hash)
-        (repeat 20 0) ;peer-id
-        (repeat 8 0)  ;downloaded
-        (repeat 8 0)  ;left
-        (repeat 8 0)  ;uploaded
-        (repeat 4 0)  ;event
-        (repeat 4 0)  ;IPv4 address
-        (repeat 4 0)  ;key
-        (repeat 4 1)  ;num want
-        [43 70]       ;Client ip 
-        ))))
-
 (defn announce!
   []
   (go
     (let [tracker (tracker! "tracker.publicbt.com" 80)
           cid (<! (connect! (tracker! "tracker.publicbt.com" 80)))
           tid (make-tid)
-          info-hash (sha-1 (bencode ((bdecode "mytorr.torrent") "info"))) ]
-
-      (>! (:out tracker) (announce-req cid tid info-hash))
+          info-hash (sha-1 (bencode ((bdecode "mytorr.torrent") "info")))
+          length (((bdecode "mytorr.torrent") "info") "length")]
+      (>! (:out tracker) (announce-req cid tid info-hash length))
       (when-let [data (<! (:in tracker))]
         (get-bytes (.getData data) 0 (.getLength data)))))) 
 
 (go (println (<! (announce!))))
-
 
