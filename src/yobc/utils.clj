@@ -1,4 +1,5 @@
-(ns yobc.utils)
+(ns yobc.utils
+  (:require [clojure.string :as string]))
 
 (defn sha-1 
   "Computes SHA-1 hash of a given string"
@@ -7,7 +8,7 @@
     (map (partial format "%02x")
       (.digest (doto (java.security.MessageDigest/getInstance "SHA-1")
                      .reset
-                     (.update (.getBytes string)))))))
+                     (.update (.getBytes string "ISO-8859-1")))))))
 
 (defn get-byte [bytearray i]
   (let [bytearray (bytes bytearray)]
@@ -29,3 +30,8 @@
   (let [b (.toByteArray (BigInteger. (str number) 10))
         diff (- 8 (count b))]
     (concat (repeat diff 0) (get-bytes b))))
+
+(defn host-port
+  [url]
+  (let [parts (string/split url #"/|:")]
+    [(nth parts 3) (Integer/parseInt (nth parts 4))]))

@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async :refer  [<! >! chan go close!]]
             [yobc.bencoder :as bencoder :refer [bencode]]
             [yobc.bdecoder :as bdecoder :refer [bdecode]]
-            [yobc.utils :as utils :refer [sha-1 get-byte get-bytes hex-to-bytes dec-to-bytes]])
+            [yobc.utils :as utils :refer :all])
   (:import  (java.net InetSocketAddress DatagramPacket DatagramSocket)))
 
 (defn make-tid []
@@ -18,7 +18,7 @@
         tid))))
 
 (defn announce-req 
-  [cid tid info-hash length]
+  [cid tid info-hash]
   (byte-array 
     (map byte 
       (concat
@@ -28,19 +28,19 @@
         (hex-to-bytes info-hash)
         (repeat 20 0) ;peer-id
         (repeat 8 0)  ;downloaded
-        (dec-to-bytes length)  ;left
+        (repeat 8 0)  ;left
         (repeat 8 0)  ;uploaded
         (repeat 4 0)  ;event
         (repeat 4 0)  ;IPv4 address
         (repeat 4 0)  ;key
-        (repeat 4 127)  ;num want
+        (repeat 4 -128)  ;num want
         [43 70]       ;Client ip 
         ))))
 
 (defn tracker!
   "Defines out - a channel that blocks until there's a packet and does a UDP send,
   and in - a channel that blocks until there's a packet from the server and puts it to be read."
-  [host port]
+  [[host port]]
   (let [socket (DatagramSocket.)
         out (chan)
         in (chan)
@@ -65,17 +65,30 @@
           (when (= tid' tid)
              cid'))))))
 
+(defn announce-resp
+  [resp]
+  {:action (take 4 resp)
+   :tid (take 4 (drop 4 resp))
+   :interval (take 4 (drop 8 resp))
+   :leechers (take 4 (drop 12 resp))
+   :seeders (take 4 (drop 16 resp))
+   :ip-port-pairs (map #(partition-all 4 %) (partition 6 (drop 20 resp)))})
+
 (defn announce!
-  []
+  [tracker cid info-hash]
   (go
-    (let [tracker (tracker! "tracker.publicbt.com" 80)
-          cid (<! (connect! (tracker! "tracker.publicbt.com" 80)))
-          tid (make-tid)
-          info-hash (sha-1 (bencode ((bdecode "mytorr.torrent") "info")))
-          length (((bdecode "mytorr.torrent") "info") "length")]
-      (>! (:out tracker) (announce-req cid tid info-hash length))
+    (let [tid (make-tid)]
+      (>! (:out tracker) (announce-req cid tid info-hash))
       (when-let [data (<! (:in tracker))]
-        (get-bytes (.getData data) 0 (.getLength data)))))) 
+        (announce-resp (get-bytes (.getData data) 0 (.getLength data))))))) 
 
-(go (println (<! (announce!))))
+(defn get-peers!
+  [torrent-file]
+  (go
+    (let [torrent (bdecode torrent-file)
+          info-hash (sha-1 (bencode (torrent "info")))
+          host-port (host-port (torrent "announce"))          
+          cid (<! (connect! (tracker! host-port)))]
+      (:ip-port-pairs (<! (announce! (tracker! host-port) cid info-hash))))))
 
+(get-peers! "mytorr.torrent")
