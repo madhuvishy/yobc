@@ -1,5 +1,5 @@
 (ns yobc.tracker
-  (:require [clojure.core.async :as async :refer  [<! >! chan go close!]]
+  (:require [clojure.core.async :as async :refer  [<! >! chan go close! <!!]]
             [yobc.bencoder :as bencoder :refer [bencode]]
             [yobc.bdecoder :as bdecoder :refer [bdecode]]
             [yobc.utils :as utils :refer :all])
@@ -53,9 +53,8 @@
     {:in in :out out}))
 
 (defn connect!
-  [tracker]
-  (let [tid (make-tid)
-        payload (connect-req tid)]
+  [tracker tid]
+  (let [payload (connect-req tid)]
     (go
       (>! (:out tracker) payload)
       (when-let [data (<! (:in tracker))]
@@ -75,12 +74,13 @@
    :ip-port-pairs (map #(partition-all 4 %) (partition 6 (drop 20 resp)))})
 
 (defn announce!
-  [tracker cid info-hash]
+  [tracker cid tid info-hash]
   (go
-    (let [tid (make-tid)]
-      (>! (:out tracker) (announce-req cid tid info-hash))
-      (when-let [data (<! (:in tracker))]
-        (announce-resp (get-bytes (.getData data) 0 (.getLength data))))))) 
+    (>! (:out tracker) (announce-req cid tid info-hash))
+    (when-let [data (<! (:in tracker))]
+      (let [resp (announce-resp (get-bytes (.getData data) 0 (.getLength data)))]
+        (when (= tid (:tid resp))
+          resp))))) 
 
 (defn get-peers!
   [torrent-file]
@@ -88,7 +88,10 @@
     (let [torrent (bdecode torrent-file)
           info-hash (sha-1 (bencode (torrent "info")))
           host-port (host-port (torrent "announce"))          
-          cid (<! (connect! (tracker! host-port)))]
-      (:ip-port-pairs (<! (announce! (tracker! host-port) cid info-hash))))))
+          tid (make-tid)
+          cid (<! (connect! (tracker! host-port) tid))
+          announce-resp (<! (announce! (tracker! host-port) cid tid info-hash))]
 
-(get-peers! "mytorr.torrent")
+      (:ip-port-pairs announce-resp))))
+
+(println (<!! (get-peers! "mytorr.torrent")))
