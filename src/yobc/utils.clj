@@ -1,5 +1,8 @@
 (ns yobc.utils
-  (:require [clojure.string :as string]))
+  (:import [java.net InetAddress])
+  (:require [clojure.string :as string]
+            [yobc.bdecoder :as bdecoder :refer [bdecode]]
+            [yobc.bencoder :as bencoder :refer [bencode]]))
 
 (defn sha-1 
   "Computes SHA-1 hash of a given string"
@@ -35,3 +38,26 @@
   [url]
   (let [parts (string/split url #"/|:")]
     [(nth parts 3) (Integer/parseInt (nth parts 4))]))
+
+(defn bytes-to-port
+  [[byte1 byte2]]
+  (bit-or (bit-and byte2 0xFF)
+          (bit-shift-left (bit-and byte1 0xFF) 8)))
+
+(defn port-to-bytes
+  [port]
+  [(bit-and (bit-shift-right port 8) 0xFF) (bit-and port 0xFF)])
+
+(defn address-port-pairs 
+  [peers]
+  (map (fn [[ip port]]
+         [(InetAddress/getByAddress (byte-array (map byte ip)))
+          (bytes-to-port port)])
+       peers))
+
+(defn info-hash
+  [torrent]
+  (sha-1 (bencode (torrent "info"))))
+
+(defn peer-id []
+  "ABCDEFGHIJK123456789")

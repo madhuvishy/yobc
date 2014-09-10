@@ -23,18 +23,18 @@
     (map byte 
       (concat
         cid
-        [0 0 0 1]     ;action 
+        [0 0 0 1]                   ;action 
         tid
         (hex-to-bytes info-hash)
-        (repeat 20 0) ;peer-id
-        (repeat 8 0)  ;downloaded
-        (repeat 8 0)  ;left
-        (repeat 8 0)  ;uploaded
-        (repeat 4 0)  ;event
-        (repeat 4 0)  ;IPv4 address
-        (repeat 4 0)  ;key
-        (repeat 4 -128)  ;num want
-        [43 70]       ;Client ip 
+        (seq (peer-id))             ;peer-id
+        (repeat 8 0)                ;downloaded
+        (repeat 8 0)                ;left
+        (repeat 8 0)                ;uploaded
+        (repeat 4 0)                ;event
+        (repeat 4 0)                ;IPv4 address
+        (repeat 4 0)                ;key
+        (repeat 4 -128)             ;num want
+        (port-to-bytes 4370)        ;Client ip 
         ))))
 
 (defn tracker!
@@ -83,15 +83,12 @@
           resp))))) 
 
 (defn get-peers!
-  [torrent-file]
+  [torrent]
   (go
-    (let [torrent (bdecode torrent-file)
-          info-hash (sha-1 (bencode (torrent "info")))
+    (let [info-hash (info-hash torrent) 
           host-port (host-port (torrent "announce"))          
           tid (make-tid)
           cid (<! (connect! (tracker! host-port) tid))
           announce-resp (<! (announce! (tracker! host-port) cid tid info-hash))]
 
       (:ip-port-pairs announce-resp))))
-
-(println (<!! (get-peers! "mytorr.torrent")))
