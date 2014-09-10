@@ -27,8 +27,9 @@
         out (chan)]
     (go (when-let [message (<! out)]
       (.. sock getOutputStream (write message))))
-    (go (when-let [data (slurp (.. sock getInputStream))]
-          (>! in data)))
+    (let [b (byte-array 512)]
+    (go (when-let [length (.. sock getInputStream (read b))]
+          (>! in (get-bytes b 0 length)))))
     {:in in :out out}))
 
 (defn handshake! [peer]
