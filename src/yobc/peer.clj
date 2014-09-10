@@ -26,18 +26,16 @@
         in (chan) 
         out (chan)]
     (go (when-let [message (<! out)]
-      (print "HEY" message)
-      (.. sock getOutputStream write message)))
-    (go (when-let [data (.. sock getIputStream read)]
+      (.. sock getOutputStream (write message))))
+    (go (when-let [data (slurp (.. sock getInputStream))]
           (>! in data)))
     {:in in :out out}))
 
 (defn handshake! [peer]
   (go
     (let [conn (connect! peer)]
-      (println conn)
       (>! (:out conn) (handshake-msg (info-hash torrent)))
       (when-let [data (<! (:in conn))]
-        (println (data))))))
+        (println data)))))
 
-(handshake! (first peers))
+;(handshake! (nth peers 2))
