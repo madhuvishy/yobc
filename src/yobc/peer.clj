@@ -10,7 +10,6 @@
 (def torrent (bdecode "mytorr.torrent"))
 (def pieces (pwp/pieces (torrent "info")))
 (def blocks (pwp/blocks (torrent "info")))
-(def peers (address-port-pairs (<!! (tracker/get-peers! torrent))))
 
 (defn connect! [[host port]]
   (let [sock (Socket. host port)
@@ -29,23 +28,22 @@
 
 (defn handshake! 
   "#FIXME: Test for valid info hash returned"
-  [conn]
+  [conn info-hash]
   (go
-    (>! (:out conn) (pwp/handshake-msg (info-hash torrent)))
-    (when-let [data (<! (pwp/handshake (:in conn)))]
-      data)))
+    (>! (:out conn) (pwp/handshake-msg info-hash))
+    (when-let [handshake (<! (pwp/handshake (:in conn)))]
+      handshake)))
 
-(defn get-messages! [peer]
-  (go
-    (let [conn (connect! peer)
-          outbox (chan 10)]
-      (when-let [handshake (<! (handshake! conn))]
-        (println handshake)
-        (loop []
-          (when-let [data (<! (pwp/parse-message (:in conn)))]
-            (println data)
-            (>! outbox data)
-            (recur)))))))
+(defn get-messages! [in]
+  (go-loop [outbox (chan)]
+    (when-let [data (<! (pwp/parse-message (in)))]
+      (println data)
+      (>! outbox data)
+      (recur))))
 
-
-;(handshake! (nth peers 2))
+(defn connected-peer!
+  [peer info-hash local-peer-id]
+    (go
+      (let [conn (connect! user)]
+        (when-let [handshake (<! (handshake! conn info-hash))]
+          [:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)]))))
