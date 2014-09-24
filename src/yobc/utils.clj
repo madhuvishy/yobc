@@ -31,7 +31,7 @@
 (defn dec-to-bytes
   [number]
   (let [b (.toByteArray (BigInteger. (str number) 10))
-        diff (- 8 (count b))]
+        diff (- 4 (count b))]
     (concat (repeat diff 0) (get-bytes b))))
 
 (defn host-port
@@ -54,6 +54,13 @@
          [(InetAddress/getByAddress (byte-array (map byte ip)))
           (bytes-to-port port)])
        peers))
+
+(defn bytes-to-len
+  [[byte1 byte2 byte3 byte4]]
+  (bit-or (bit-and byte4 0xFF)
+          (bit-shift-left (bit-and byte3 0xFF) 8)
+          (bit-shift-left (bit-and byte3 0xFF) 16)
+          (bit-shift-left (bit-and byte3 0xFF) 24)))
 
 (defn info-hash
   [torrent]
