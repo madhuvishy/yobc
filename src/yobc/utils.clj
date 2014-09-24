@@ -68,3 +68,15 @@
 
 (defn peer-id []
   "ABCDEFGHIJK123456789")
+
+(defn bitfield-to-bits
+  [bitfield]
+  (mapv #(Integer/parseInt (str %)) 
+       (vec
+          (reduce str 
+                  (map (fn [number]
+                         (let [binary (Integer/toBinaryString number)]
+                           (if (< number 0)
+                             (subs binary 24)
+                             (string/replace (format "%8s" binary) " " "0"))))
+                        bitfield)))))

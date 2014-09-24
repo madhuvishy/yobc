@@ -12,12 +12,7 @@
 (def blocks (pwp/blocks (torrent "info")))
 (def peers (address-port-pairs (<!! (tracker/get-peers! torrent))))
 
-(defn take-n! [in-chan n]
-  (go-loop [arr [] iter 0]
-    (when (and (= iter 4) (= arr [0 0 0 0])) (close! in-chan))
-    (if (= n iter) 
-      (seq arr)
-      (recur (conj arr (<! in-chan)) (inc iter)))))
+
 
 (defn connect! [[host port]]
   (let [sock (Socket. host port)
@@ -46,12 +41,20 @@
   (go
     (let [conn (connect! peer)]
       (when-let [handshake (<! (handshake! conn))]
-        (go-loop [] 
+        (go-loop []
           (when-let [data (<! (take-n! (:in conn) 4))]
             (let [len (bytes-to-len data)]
               (when (> len 0)
                 (let [msg-type (<! (:in conn))
                       msg (<! (take-n! (:in conn) (dec len)))]
-                  (when (>! (:out conn) (pwp/process msg-type msg)) (recur)))))))))))
+                  (when (>! (:out conn) (process msg-type msg)) (recur)))))))))))
 
+(defn process
+  [msg-type msg]
+    (let [pwp-type (message-type msg-type)]
+      (println pwp-type msg)
+      (condp pwp-type
+        :bitfield (take )
+        )
+      (byte-array 4)))
 ;(handshake! (nth peers 2))

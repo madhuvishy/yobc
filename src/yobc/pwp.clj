@@ -1,5 +1,6 @@
 (ns yobc.pwp
-  (:require [yobc.utils :as utils :refer :all]) )
+  (:require [yobc.utils :as utils :refer :all]
+            [clojure.core.async :as async :refer [<! >! go go-loop]]))
 
 (defn pieces 
   [torrent-info]
@@ -60,8 +61,51 @@
 (defmethod respond :choke [msg]
   (print (:payload msg)))
 
-(defn process
-  [msg-type msg]
-    (do
-      (println (message-type msg-type) msg)
-      (byte-array 4)))
+(defn take-n [in-chan n]
+  (go-loop [arr [] iter 0]
+    (if (= n iter) 
+      (seq arr)
+      (recur (conj arr (<! in-chan)) (inc iter)))))
+
+(defn int-val [in-chan]
+  (let [msg-bytes (<! (take-n in-chan 4))]
+    (BigInteger. (byte-array (map byte msg-bytes)))))
+
+(defn parse-message [in-chan]
+  (go (when-let [length (int-val in-chan)]
+        (if 
+          (= length 0) :keepalive
+          (when-let [msg-type (<! in-chan)]
+          (cond
+            (and (< msg-type 4) (= length 1)) 
+              (message-type msg-type)
+
+            (and (= msg-type 4) (= length 5))
+              [:have (int-val in-chan)]
+
+            (and (= msg-type 5) (> length 1))
+              [:bitfield (<! (take-n in-chan (dec length)))]
+
+            (and (= msg-type 6) (= length 13))
+              (when-let [index (int-val in-chan)]
+                (when-let [begin (int-val in-chan)]
+                  (when-let [length (int-val in-chan)]
+                    [:request index begin length])))
+
+            (and (= msg-type 7) (> length 9))
+              (when-let [index (int-val in-chan)]
+                (when-let [begin (int-val in-chan)]
+                  (when-let [block (<! (take-n in-chan (- length 9)))])))
+
+            (and (= msg-type 8) (= length 13))
+              (when-let [index (int-val in-chan)]
+                (when-let [begin (int-val in-chan)]
+                  (when-let [length (int-val in-chan)]
+                    [:cancel index begin length])))
+
+            (and (= msg-type 9) (= length 3))
+              (when-let [port-bytes (<! (take-n in-chan 2))]
+                [:port (bytes-to-port port-bytes)])
+            
+            :else
+              nil))))))
