@@ -12,11 +12,9 @@
 (def blocks (pwp/blocks (torrent "info")))
 (def peers (address-port-pairs (<!! (tracker/get-peers! torrent))))
 
-
-
 (defn connect! [[host port]]
   (let [sock (Socket. host port)
-        in (chan (sliding-buffer 1000)) 
+        in (chan (sliding-buffer 100)) 
         out (chan)]
     (go-loop [] 
       (when-let [message (<! out)]
@@ -34,27 +32,20 @@
   [conn]
   (go
     (>! (:out conn) (pwp/handshake-msg (info-hash torrent)))
-    (when-let [data (<! (take-n! (:in conn) 68))]
+    (when-let [data (<! (pwp/handshake (:in conn)))]
       data)))
 
-(defn exchange! [peer]
+(defn get-messages! [peer]
   (go
-    (let [conn (connect! peer)]
+    (let [conn (connect! peer)
+          outbox (chan 10)]
       (when-let [handshake (<! (handshake! conn))]
-        (go-loop []
-          (when-let [data (<! (take-n! (:in conn) 4))]
-            (let [len (bytes-to-len data)]
-              (when (> len 0)
-                (let [msg-type (<! (:in conn))
-                      msg (<! (take-n! (:in conn) (dec len)))]
-                  (when (>! (:out conn) (process msg-type msg)) (recur)))))))))))
+        (println handshake)
+        (loop []
+          (when-let [data (<! (pwp/parse-message (:in conn)))]
+            (println data)
+            (>! outbox data)
+            (recur)))))))
 
-(defn process
-  [msg-type msg]
-    (let [pwp-type (message-type msg-type)]
-      (println pwp-type msg)
-      (condp pwp-type
-        :bitfield (take )
-        )
-      (byte-array 4)))
+
 ;(handshake! (nth peers 2))

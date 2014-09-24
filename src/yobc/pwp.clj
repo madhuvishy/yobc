@@ -68,44 +68,48 @@
       (recur (conj arr (<! in-chan)) (inc iter)))))
 
 (defn int-val [in-chan]
-  (let [msg-bytes (<! (take-n in-chan 4))]
-    (BigInteger. (byte-array (map byte msg-bytes)))))
+  (go (let [msg-bytes (<! (take-n in-chan 4))]
+        (BigInteger. (byte-array (map byte msg-bytes))))))
+
+(defn handshake [in-chan]
+  (go (when-let [data (<! (take-n in-chan 68))]
+        {:info-hash (take 20 (drop 28 data)) :peer-id (drop 48 data)})))
 
 (defn parse-message [in-chan]
-  (go (when-let [length (int-val in-chan)]
+  (go (when-let [length (<! (int-val in-chan))]
         (if 
           (= length 0) :keepalive
           (when-let [msg-type (<! in-chan)]
-          (cond
-            (and (< msg-type 4) (= length 1)) 
-              (message-type msg-type)
+            (cond
+              (and (< msg-type 4) (= length 1)) 
+                (message-type msg-type)
 
-            (and (= msg-type 4) (= length 5))
-              [:have (int-val in-chan)]
+              (and (= msg-type 4) (= length 5))
+                [:have (<! (int-val in-chan))]
 
-            (and (= msg-type 5) (> length 1))
-              [:bitfield (<! (take-n in-chan (dec length)))]
+              (and (= msg-type 5) (> length 1))
+                [:bitfield (<! (take-n in-chan (dec length)))]
 
-            (and (= msg-type 6) (= length 13))
-              (when-let [index (int-val in-chan)]
-                (when-let [begin (int-val in-chan)]
-                  (when-let [length (int-val in-chan)]
-                    [:request index begin length])))
+              (and (= msg-type 6) (= length 13))
+                (when-let [index (<! (int-val in-chan))]
+                  (when-let [begin (<! (int-val in-chan))]
+                    (when-let [length (<! (int-val in-chan))]
+                      [:request index begin length])))
 
-            (and (= msg-type 7) (> length 9))
-              (when-let [index (int-val in-chan)]
-                (when-let [begin (int-val in-chan)]
-                  (when-let [block (<! (take-n in-chan (- length 9)))])))
+              (and (= msg-type 7) (> length 9))
+                (when-let [index (<! (int-val in-chan))]
+                  (when-let [begin (<! (int-val in-chan))]
+                    (when-let [block (<! (take-n in-chan (- length 9)))])))
 
-            (and (= msg-type 8) (= length 13))
-              (when-let [index (int-val in-chan)]
-                (when-let [begin (int-val in-chan)]
-                  (when-let [length (int-val in-chan)]
-                    [:cancel index begin length])))
+              (and (= msg-type 8) (= length 13))
+                (when-let [index (<! (int-val in-chan))]
+                  (when-let [begin (<! (int-val in-chan))]
+                    (when-let [length (<! (int-val in-chan))]
+                      [:cancel index begin length])))
 
-            (and (= msg-type 9) (= length 3))
-              (when-let [port-bytes (<! (take-n in-chan 2))]
-                [:port (bytes-to-port port-bytes)])
-            
-            :else
-              nil))))))
+              (and (= msg-type 9) (= length 3))
+                (when-let [port-bytes (<! (take-n in-chan 2))]
+                  [:port (bytes-to-port port-bytes)])
+              
+              :else
+                nil))))))
