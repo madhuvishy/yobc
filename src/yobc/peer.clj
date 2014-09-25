@@ -7,10 +7,6 @@
             [yobc.pwp :as pwp]
             [yobc.bdecoder :as bdecoder :refer [bdecode]]))
 
-(def torrent (bdecode "mytorr.torrent"))
-(def pieces (pwp/pieces (torrent "info")))
-(def blocks (pwp/blocks (torrent "info")))
-
 (defn connect! [[host port]]
   (let [sock (Socket. host port)
         in (chan (sliding-buffer 100)) 
@@ -27,23 +23,24 @@
     {:in in :out out}))
 
 (defn handshake! 
-  "#FIXME: Test for valid info hash returned"
   [conn info-hash]
   (go
     (>! (:out conn) (pwp/handshake-msg info-hash))
     (when-let [handshake (<! (pwp/handshake (:in conn)))]
-      handshake)))
+      (when (= (:info-hash handshake) (hex-to-bytes info-hash))
+        handshake))))
 
 (defn get-messages! [in]
-  (go-loop [outbox (chan)]
-    (when-let [data (<! (pwp/parse-message (in)))]
-      (println data)
-      (>! outbox data)
-      (recur))))
+  (let [outbox (chan)]
+    (go-loop []
+      (when-let [data (<! (pwp/parse-message (in)))]
+        (println data)
+        (>! outbox data)
+        (recur)))))
 
 (defn connected-peer!
   [peer info-hash local-peer-id]
     (go
-      (let [conn (connect! user)]
+      (let [conn (connect! peer)]
         (when-let [handshake (<! (handshake! conn info-hash))]
           [:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)]))))
