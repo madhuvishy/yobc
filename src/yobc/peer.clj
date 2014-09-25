@@ -33,14 +33,14 @@
 (defn get-messages! [in]
   (let [outbox (chan)]
     (go-loop []
-      (when-let [data (<! (pwp/parse-message (in)))]
-        (println data)
+      (when-let [data (<! (pwp/parse-message in))]
         (>! outbox data)
-        (recur)))))
+        (recur)))
+    outbox))
 
 (defn connected-peer!
   [peer info-hash local-peer-id]
     (go
       (let [conn (connect! peer)]
         (when-let [handshake (<! (handshake! conn info-hash))]
-          [:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)]))))
+          {:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)}))))
