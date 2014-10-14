@@ -16,7 +16,7 @@
   (let [piece-length (torrent-info "piece length")
         block-size (int (Math/pow 2 14))
         blocks-estimate (quot piece-length block-size)]
-    (if (> (mod piece-length block-size))
+    (if (> (mod piece-length block-size) 0)
       (inc blocks-estimate)
       blocks-estimate)))
 
@@ -31,35 +31,25 @@
            (hex-to-bytes info-hash)
            (seq (peer-id))))))
 
-(defn pwp-message
-  ([length id] (byte-array [length id])) 
-  ([length id payload] (byte-array (map byte (concat [length id] payload)))))
-
-(defn choke [] (pwp-message 1 0))
-
-(defn unchoke [] (pwp-message 1 1))
-
-(defn interested [] (pwp-message 1 2))
-
-(defn uninterested [] (pwp-message 1 3))
+(defn interested [] (byte-array (map byte [0 0 0 1 2])))
 
 (defn request [piece-index block-offset block-length]
-  (pwp-message 13 6 (concat piece-index block-offset block-length)))
+  (byte-array
+    (map byte 
+      (concat
+        [0 0 0 13 6]
+        (dec-to-bytes piece-index)
+        (dec-to-bytes block-offset)
+        (dec-to-bytes block-length)))))
 
-(def message-type { 0 :choke
-                    1 :unchoke
-                    2 :interested
-                    3 :uninterested
-                    4 :have
-                    5 :bitfield
-                    6 :request
-                    7 :block
-                    8 :cancel })
+(defn piece->requests [piece-index blocks block-size]
+    (mapv #(request piece-index % block-size) (range blocks)))
 
-(defmulti respond :type)
 
-(defmethod respond :choke [msg]
-  (print (:payload msg)))
+(defn msg-to-type [msg] 
+  (if (keyword? msg)
+    msg
+    (first msg)))
 
 (defn take-n [in-chan n]
   (go-loop [arr [] iter 0]
@@ -75,20 +65,31 @@
   (go (when-let [data (<! (take-n in-chan 68))]
         {:info-hash (take 20 (drop 28 data)) :peer-id (drop 48 data)})))
 
+(def message-types {0 :choke
+                     1 :unchoke
+                     2 :interested
+                     3 :uninterested})
+
 (defn parse-message [in-chan]
+  (println "In parse message")
   (go (when-let [length (<! (int-val in-chan))]
+        (print "Read length " length)
         (if 
           (= length 0) :keepalive
           (when-let [msg-type (<! in-chan)]
+            (println "Read message type " msg-type)
             (cond
               (and (< msg-type 4) (= length 1)) 
-                (message-type msg-type)
+              (do (println "Got something like unchoke " msg-type)
+                (message-types msg-type))
 
               (and (= msg-type 4) (= length 5))
-                [:have (<! (int-val in-chan))]
+              (do (println "got a have " msg-type)
+                [:have (<! (int-val in-chan))])
 
               (and (= msg-type 5) (> length 1))
-                [:bitfield (<! (take-n in-chan (dec length)))]
+              (do (println "got a bitfield" msg-type)
+                [:bitfield (<! (take-n in-chan (dec length)))])
 
               (and (= msg-type 6) (= length 13))
                 (when-let [index (<! (int-val in-chan))]
@@ -98,8 +99,13 @@
 
               (and (= msg-type 7) (> length 9))
                 (when-let [index (<! (int-val in-chan))]
+                  (println "got a piece index!!!")
                   (when-let [begin (<! (int-val in-chan))]
-                    (when-let [block (<! (take-n in-chan (- length 9)))])))
+                    (println "got a piece begin!!!")
+                    (println length)
+                    (when-let [block (<! (take-n in-chan (- length 9)))]
+                      (println "about to emit a piece!!!")
+                      [:piece index begin block])))
 
               (and (= msg-type 8) (= length 13))
                 (when-let [index (<! (int-val in-chan))]
@@ -112,4 +118,5 @@
                   [:port (bytes-to-port port-bytes)])
               
               :else
-                nil))))))
+              (do (println "elseee")
+                nil)))))))

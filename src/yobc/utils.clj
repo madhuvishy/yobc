@@ -4,6 +4,13 @@
             [yobc.bdecoder :as bdecoder :refer [bdecode]]
             [yobc.bencoder :as bencoder :refer [bencode]]))
 
+(defn throw-err [e]
+  (when (instance? Throwable e) (throw e))
+  e)
+ 
+(defmacro <? [ch]
+  `(throw-err (async/<! ~ch)))
+
 (defn sha-1 
   "Computes SHA-1 hash of a given string"
   [string]
@@ -48,12 +55,14 @@
   [port]
   [(bit-and (bit-shift-right port 8) 0xFF) (bit-and port 0xFF)])
 
+(defn address-port-pair
+  [[ip port]]
+  [(InetAddress/getByAddress (byte-array (map byte ip)))
+   (bytes-to-port port)])
+
 (defn address-port-pairs 
   [peers]
-  (map (fn [[ip port]]
-         [(InetAddress/getByAddress (byte-array (map byte ip)))
-          (bytes-to-port port)])
-       peers))
+  (map address-port-pair peers))
 
 (defn bytes-to-len
   [[byte1 byte2 byte3 byte4]]
@@ -71,7 +80,7 @@
 
 (defn bitfield-to-bits
   [bitfield]
-  (mapv #(Integer/parseInt (str %)) 
+  (mapv #(if (= \0 %) false true) 
        (vec
           (reduce str 
                   (map (fn [number]
