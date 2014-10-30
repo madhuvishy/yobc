@@ -7,7 +7,7 @@
 (defn throw-err [e]
   (when (instance? Throwable e) (throw e))
   e)
- 
+
 (defmacro <? [ch]
   `(throw-err (async/<! ~ch)))
 
@@ -15,10 +15,10 @@
   "Computes SHA-1 hash of a given string"
   [string]
   (apply str
-    (map (partial format "%02x")
-      (.digest (doto (java.security.MessageDigest/getInstance "SHA-1")
-                     .reset
-                     (.update (.getBytes string "ISO-8859-1")))))))
+         (map (partial format "%02x")
+              (.digest (doto (java.security.MessageDigest/getInstance "SHA-1")
+                         .reset
+                         (.update (.getBytes string "ISO-8859-1")))))))
 
 (defn get-byte [bytearray i]
   (let [bytearray (bytes bytearray)]
@@ -81,11 +81,11 @@
 (defn bitfield-to-bits
   [bitfield]
   (mapv #(if (= \0 %) false true) 
-       (vec
+        (vec
           (reduce str 
                   (map (fn [number]
                          (let [binary (Integer/toBinaryString number)]
                            (if (< number 0)
                              (subs binary 24)
                              (string/replace (format "%8s" binary) " " "0"))))
-                        bitfield)))))
+                       bitfield)))))

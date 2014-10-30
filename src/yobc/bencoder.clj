@@ -22,11 +22,11 @@
   [values]
   (clojure.string/join 
     (map (fn [value] 
-         (cond
-           (number? value) (encode-number value)
-           (string? value) (encode-string value)
-           (seq? value) (encode-list value)
-           (map? value) (encode-dict value))) values)))
+           (cond
+             (number? value) (encode-number value)
+             (string? value) (encode-string value)
+             (seq? value) (encode-list value)
+             (map? value) (encode-dict value))) values)))
 
 (defn bencode
   [dict]

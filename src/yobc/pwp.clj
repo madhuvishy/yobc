@@ -36,14 +36,14 @@
 (defn request [piece-index block-offset block-length]
   (byte-array
     (map byte 
-      (concat
-        [0 0 0 13 6]
-        (dec-to-bytes piece-index)
-        (dec-to-bytes block-offset)
-        (dec-to-bytes block-length)))))
+         (concat
+           [0 0 0 13 6]
+           (dec-to-bytes piece-index)
+           (dec-to-bytes block-offset)
+           (dec-to-bytes block-length)))))
 
 (defn piece->requests [piece-index blocks block-size]
-    (mapv #(request piece-index % block-size) (range blocks)))
+  (mapv #(request piece-index % block-size) (range blocks)))
 
 
 (defn msg-to-type [msg] 
@@ -66,9 +66,9 @@
         {:info-hash (take 20 (drop 28 data)) :peer-id (drop 48 data)})))
 
 (def message-types {0 :choke
-                     1 :unchoke
-                     2 :interested
-                     3 :uninterested})
+                    1 :unchoke
+                    2 :interested
+                    3 :uninterested})
 
 (defn parse-message [in-chan]
   (println "In parse message")
@@ -81,42 +81,42 @@
             (cond
               (and (< msg-type 4) (= length 1)) 
               (do (println "Got something like unchoke " msg-type)
-                (message-types msg-type))
+                  (message-types msg-type))
 
               (and (= msg-type 4) (= length 5))
               (do (println "got a have " msg-type)
-                [:have (<! (int-val in-chan))])
+                  [:have (<! (int-val in-chan))])
 
               (and (= msg-type 5) (> length 1))
               (do (println "got a bitfield" msg-type)
-                [:bitfield (<! (take-n in-chan (dec length)))])
+                  [:bitfield (<! (take-n in-chan (dec length)))])
 
               (and (= msg-type 6) (= length 13))
-                (when-let [index (<! (int-val in-chan))]
-                  (when-let [begin (<! (int-val in-chan))]
-                    (when-let [length (<! (int-val in-chan))]
-                      [:request index begin length])))
+              (when-let [index (<! (int-val in-chan))]
+                (when-let [begin (<! (int-val in-chan))]
+                  (when-let [length (<! (int-val in-chan))]
+                    [:request index begin length])))
 
               (and (= msg-type 7) (> length 9))
-                (when-let [index (<! (int-val in-chan))]
-                  (println "got a piece index!!!")
-                  (when-let [begin (<! (int-val in-chan))]
-                    (println "got a piece begin!!!")
-                    (println length)
-                    (when-let [block (<! (take-n in-chan (- length 9)))]
-                      (println "about to emit a piece!!!")
-                      [:piece index begin block])))
+              (when-let [index (<! (int-val in-chan))]
+                (println "got a piece index!!!")
+                (when-let [begin (<! (int-val in-chan))]
+                  (println "got a piece begin!!!")
+                  (println length)
+                  (when-let [block (<! (take-n in-chan (- length 9)))]
+                    (println "about to emit a piece!!!")
+                    [:piece index begin block])))
 
               (and (= msg-type 8) (= length 13))
-                (when-let [index (<! (int-val in-chan))]
-                  (when-let [begin (<! (int-val in-chan))]
-                    (when-let [length (<! (int-val in-chan))]
-                      [:cancel index begin length])))
+              (when-let [index (<! (int-val in-chan))]
+                (when-let [begin (<! (int-val in-chan))]
+                  (when-let [length (<! (int-val in-chan))]
+                    [:cancel index begin length])))
 
               (and (= msg-type 9) (= length 3))
-                (when-let [port-bytes (<! (take-n in-chan 2))]
-                  [:port (bytes-to-port port-bytes)])
-              
+              (when-let [port-bytes (<! (take-n in-chan 2))]
+                [:port (bytes-to-port port-bytes)])
+
               :else
               (do (println "elseee")
-                nil)))))))
+                  "None")))))))

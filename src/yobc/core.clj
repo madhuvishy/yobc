@@ -21,8 +21,8 @@
 
 (defn request [data-chan out pid blocks]
   (let [piece-requested (find-rand-piece (:our-bitfield @state) 
-                                          (get-in @state [pid :bitfield]))]
-      (println blocks (pwp/piece->requests piece-requested blocks block-size))
+                                         (get-in @state [pid :bitfield]))]
+    (println blocks (pwp/piece->requests piece-requested blocks block-size))
     (go
       (doseq [block-request
               (pwp/piece->requests piece-requested blocks block-size)]
@@ -40,15 +40,15 @@
     (loop []
       (println "about to go through the start loop")
       (when-let [msg (<! data-chan)]
-        (println "got a message in start\n " msg)
+        ;(println  msg)
         (condp = (pwp/msg-to-type msg)
           :bitfield 
-            (swap! state assoc-in [pid :bitfield] 
-                  (vec (take pieces (bitfield-to-bits (second msg)))))
+          (swap! state assoc-in [pid :bitfield] 
+                 (vec (take pieces (bitfield-to-bits (second msg)))))
           :have 
-            (swap! state update-in [pid :bitfield (second msg)] #(if (not %) true))
+          (swap! state update-in [pid :bitfield (second msg)] #(if (not %) true))
           :unchoke
-            (<! (request data-chan out pid blocks))
+          (<! (request data-chan out pid blocks))
           ;:piece 
           ;  (println "piece")
           (println msg "Not sure what to do"))

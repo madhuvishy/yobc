@@ -40,13 +40,13 @@
     (go-loop []
       (when-let [data (<! (pwp/parse-message in))]
         (println "got some data ")
-        (>! outbox data)
+        (when (not= data "None") (>! outbox data))
         (recur)))
     outbox))
 
 (defn connected-peer!
   [peer info-hash local-peer-id]
-    (go
-      (let [conn (connect! peer)]
-        (when-let [handshake (<! (handshake! conn info-hash))]
-          {:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)}))))
+  (go
+    (let [conn (connect! peer)]
+      (when-let [handshake (<! (handshake! conn info-hash))]
+        {:inbox (:in conn) :outbox (:out conn) :peer-id (:peer-id handshake)}))))

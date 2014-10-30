@@ -12,30 +12,30 @@
   [tid]
   (byte-array
     (map byte
-      (concat
-        [0 0 4 23 39 16 25 -128]  ;initial-cid
-        (repeat 4 0)              ;initial-action
-        tid))))
+         (concat
+           [0 0 4 23 39 16 25 -128]  ;initial-cid
+           (repeat 4 0)              ;initial-action
+           tid))))
 
 (defn announce-req 
   [cid tid info-hash]
   (byte-array 
     (map byte 
-      (concat
-        cid
-        [0 0 0 1]                   ;action 
-        tid
-        (hex-to-bytes info-hash)
-        (seq (peer-id))             ;peer-id
-        (repeat 8 0)                ;downloaded
-        (repeat 8 0)                ;left
-        (repeat 8 0)                ;uploaded
-        (repeat 4 0)                ;event
-        (repeat 4 0)                ;IPv4 address
-        (repeat 4 0)                ;key
-        (repeat 4 -128)             ;num want
-        (port-to-bytes 4370)        ;Client ip 
-        ))))
+         (concat
+           cid
+           [0 0 0 1]                   ;action 
+           tid
+           (hex-to-bytes info-hash)
+           (seq (peer-id))             ;peer-id
+           (repeat 8 0)                ;downloaded
+           (repeat 8 0)                ;left
+           (repeat 8 0)                ;uploaded
+           (repeat 4 0)                ;event
+           (repeat 4 0)                ;IPv4 address
+           (repeat 4 0)                ;key
+           (repeat 4 -128)             ;num want
+           (port-to-bytes 4370)        ;Client ip 
+           ))))
 
 (defn tracker!
   "Defines out - a channel that blocks until there's a packet and does a UDP send,
@@ -48,8 +48,8 @@
     (go (when-let [payload (<! out)]
           (.send socket (DatagramPacket. payload (count payload) address))))
     (go (while true (let [packet (DatagramPacket. (byte-array 512) 512)]
-          (.receive socket packet)
-          (>! in packet))))
+                      (.receive socket packet)
+                      (>! in packet))))
     {:in in :out out}))
 
 (defn connect!
@@ -62,7 +62,7 @@
               tid' (take 4 (drop 4 b))
               cid' (take 8 (drop 8 b))]
           (when (= tid' tid)
-             cid'))))))
+            cid'))))))
 
 (defn announce-resp
   [resp]
